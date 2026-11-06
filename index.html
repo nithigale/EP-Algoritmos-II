@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fila Fácil | Sistema de Senhas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header>
+    <div class="brand"><span class="logo">≡</span> Fila Fácil</div>
+    <span class="course">EP · ALGORITMOS II</span>
+  </header>
+  <main>
+    <span class="eyebrow">Demonstração interativa</span>
+    <h1>Sistema de senhas de atendimento</h1>
+    <p class="intro">Simulação de uma recepção com duas filas FIFO: senhas preferenciais têm prioridade, e cada fila
+      respeita a ordem de chegada.</p>
+    <div class="layout">
+      <section class="card">
+        <h2>Recepção</h2>
+        <p class="sub">Cadastre uma pessoa para gerar uma nova senha.</p>
+        <form id="formulario">
+          <label for="nome">Nome da pessoa</label>
+          <input id="nome" maxlength="49" autocomplete="off" placeholder="Ex.: Ana" required>
+          <label for="tipo">Tipo de atendimento</label>
+          <select id="tipo">
+            <option value="geral">Geral</option>
+            <option value="preferencial">Preferencial</option>
+          </select>
+          <button class="primary" type="submit">+ Gerar nova senha</button>
+        </form>
+        <div class="notice" id="mensagem" role="status" aria-live="polite">Sistema pronto para receber pessoas.</div>
+        <div class="tip"><b>Regra:</b> senhas P (preferenciais) são chamadas antes das G (gerais). Dentro de cada fila,
+          vale FIFO. Limite: 5 pessoas por fila.</div>
+      </section>
+      <section class="card">
+        <h2>Painel de atendimento</h2>
+        <p class="sub">Acompanhe as senhas em tempo real.</p>
+        <div class="stats">
+          <div class="stat"><span>Pessoas aguardando</span><strong id="quantidade">0</strong></div>
+          <div class="stat green"><span>Preferenciais aguardando</span><strong id="qPreferencial">0</strong></div>
+        </div>
+        <div class="current"><span>Última senha chamada</span><strong id="chamada">---</strong><small
+            id="nomeChamado">Nenhum atendimento ainda</small></div>
+        <button class="secondary" id="atender">Chamar próxima senha</button>
+        <div class="queue-header">
+          <h2>Filas de espera</h2><span class="pill" id="capacidade">0 de 10</span>
+        </div>
+        <div class="queue-block">
+          <h3>★ Preferencial (P)</h3>
+          <div class="queue" id="filaPreferencial" aria-live="polite"></div>
+        </div>
+        <div class="queue-block">
+          <h3>Geral (G)</h3>
+          <div class="queue" id="filaGeral" aria-live="polite"></div>
+        </div>
+      </section>
+    </div>
+    <footer>Arthur e Christopher · Algoritmos II · Estrutura de dados: duas filas FIFO</footer>
+  </main>
+  <script>
+    // Duas filas, como no programa C: preferencial e geral.
+    const MAX = 5;
+    const geral = [];
+    const preferencial = [];
+    let proximaGeral = 1;
+    let proximaPreferencial = 1;
+
+    function isFull(fila) {
+      return fila.length === MAX;
+    }
+
+    function enqueue(nome, tipo) {
+      const fila = tipo === 'preferencial' ? preferencial : geral;
+      if (isFull(fila)) return null;
+      const numero = tipo === 'preferencial' ? proximaPreferencial++ : proximaGeral++;
+      const pessoa = { nome, senha: (tipo === 'preferencial' ? 'P' : 'G') + formatar(numero) };
+      fila.push(pessoa);
+      return pessoa;
+    }
+
+    function dequeue() {
+      if (preferencial.length > 0) return preferencial.shift();
+      if (geral.length > 0) return geral.shift();
+      return null;
+    }
+
+    // Interface: mostra as duas filas separadamente.
+    const $ = (id) => document.getElementById(id);
+    const formatar = (numero) => String(numero).padStart(3, '0');
+
+    function renderizarFila(fila, id, tipo) {
+      const area = $(id);
+      area.replaceChildren();
+      if (fila.length === 0) {
+        const vazio = document.createElement('div');
+        vazio.className = 'empty';
+        vazio.textContent = 'Nenhuma pessoa aguardando.';
+        area.appendChild(vazio);
+      }
+      for (const pessoa of fila) {
+        const cartao = document.createElement('div');
+        cartao.className = 'ticket ' + tipo;
+        const numero = document.createElement('strong');
+        numero.textContent = pessoa.senha;
+        const nome = document.createElement('small');
+        nome.textContent = pessoa.nome;
+        cartao.append(numero, nome);
+        area.appendChild(cartao);
+      }
+    }
+
+    function mostrarFilas() {
+      $('quantidade').textContent = geral.length + preferencial.length;
+      $('qPreferencial').textContent = preferencial.length;
+      $('capacidade').textContent = (geral.length + preferencial.length) + ' de ' + (2 * MAX);
+      renderizarFila(preferencial, 'filaPreferencial', 'preferencial');
+      renderizarFila(geral, 'filaGeral', 'geral');
+      const filaEscolhida = $('tipo').value === 'preferencial' ? preferencial : geral;
+      $('formulario').querySelector('button').disabled = isFull(filaEscolhida);
+    }
+
+    $('tipo').addEventListener('change', mostrarFilas);
+
+    $('formulario').addEventListener('submit', (evento) => {
+      evento.preventDefault();
+      const nome = $('nome').value.trim();
+      if (!nome) { $('mensagem').textContent = 'Digite um nome válido.'; return; }
+      const pessoa = enqueue(nome, $('tipo').value);
+      $('mensagem').textContent = pessoa
+        ? 'Senha ' + pessoa.senha + ' gerada para ' + pessoa.nome + '.'
+        : 'Esta fila está cheia! Atenda alguém antes de cadastrar.';
+      if (pessoa) { $('nome').value = ''; $('nome').focus(); }
+      mostrarFilas();
+    });
+
+    $('atender').addEventListener('click', () => {
+      const pessoa = dequeue();
+      if (!pessoa) {
+        $('mensagem').textContent = 'Filas vazias! Não há ninguém para atender.';
+      } else {
+        $('chamada').textContent = pessoa.senha;
+        $('nomeChamado').textContent = pessoa.nome;
+        $('mensagem').textContent = 'Atendimento iniciado: ' + pessoa.nome + '.';
+      }
+      mostrarFilas();
+    });
+
+    mostrarFilas();
+  </script>
+</body>
+
+</html>
